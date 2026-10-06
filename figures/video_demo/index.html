@@ -1,0 +1,721 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Video Demo of Reconstruction from Two Angiographic Masks</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --text: #18212f;
+      --muted: #687386;
+      --line: #dfe4ea;
+      --soft: #f7f8fa;
+      --accent: #aa1d4f;
+      --rca: #9b1c4b;
+      --lca: #315d8c;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      background: #ffffff;
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .page {
+      width: min(1920px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: 88px 0 72px;
+    }
+
+    .page-header {
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(28px, 3vw, 44px);
+      letter-spacing: -0.04em;
+      line-height: 1.12;
+    }
+
+    .page-header p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 16px;
+    }
+
+    .jump-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      position: fixed;
+      z-index: 1000;
+      top: 14px;
+      left: 14px;
+      margin: 0;
+      padding: 6px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.94);
+      box-shadow: 0 6px 20px rgba(15, 23, 42, 0.12);
+      backdrop-filter: blur(8px);
+    }
+
+    .jump-links a {
+      padding: 8px 13px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .jump-links a:hover { background: var(--soft); }
+
+    .jump-links a[aria-current="page"] {
+      border-color: var(--text);
+      background: var(--text);
+      color: #ffffff;
+    }
+
+    .artery-section { padding-top: 34px; }
+
+    .section-heading {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      margin: 0 0 16px;
+      font-size: 28px;
+      letter-spacing: -0.025em;
+    }
+
+    .section-heading span {
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0;
+    }
+
+    .case-row {
+      margin-bottom: 22px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #ffffff;
+    }
+
+    .grid-scroll {
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+
+    .comparison-grid {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(155px, 1fr));
+      gap: 10px;
+      min-width: 1145px;
+    }
+
+    .media-card {
+      min-width: 0;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: #ffffff;
+    }
+
+    .overlay-legend {
+      min-width: 0;
+      overflow: hidden;
+      border: 0;
+      border-top: 10px solid #ffffff;
+      border-radius: 0;
+      background: #ffffff;
+    }
+
+    .overlay-legend {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 14px;
+      aspect-ratio: 1 / 1;
+      padding: 20px;
+      background: var(--soft);
+    }
+
+    .paired-card .media-button img {
+      aspect-ratio: 320 / 650;
+    }
+
+    .paired-missing {
+      aspect-ratio: 320 / 650;
+    }
+
+    .radius-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(210px, 1fr)) 74px;
+      grid-template-rows: auto 110px auto;
+      gap: 9px;
+      min-width: 1000px;
+    }
+
+    .radius-grid > .column-label {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    .radius-grid > .radius-label {
+      display: grid;
+      place-items: center;
+      padding-inline: 4px;
+      font-size: 11px;
+      line-height: 1.15;
+    }
+
+    .input-cell,
+    .result-cell,
+    .colorbar-cell {
+      min-width: 0;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: #ffffff;
+    }
+
+    .empty-cell { min-width: 0; }
+
+    .view-strip {
+      display: grid;
+      grid-template-columns: repeat(var(--view-count), minmax(0, 1fr));
+      width: 100%;
+      height: 100%;
+      background: #000000;
+    }
+
+    .view-strip .media-button + .media-button {
+      border-left: 1px solid #2b2b2b;
+    }
+
+    .view-strip .media-button,
+    .view-strip .media-button img {
+      width: 100%;
+      height: 100%;
+      min-height: 0;
+      aspect-ratio: auto;
+      object-fit: contain;
+      background: #000000;
+    }
+
+    .colorbar-cell .media-button,
+    .colorbar-cell .media-button img {
+      width: 100%;
+      height: 100%;
+      aspect-ratio: auto;
+      object-fit: contain;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      color: #3e4858;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.25;
+    }
+
+    .legend-swatch {
+      flex: 0 0 auto;
+      width: 16px;
+      height: 16px;
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      border-radius: 4px;
+    }
+
+    .legend-swatch.green { background: #218c43; }
+    .legend-swatch.red { background: #bd2a2a; }
+
+    .column-label {
+      margin: 0;
+      padding: 9px 8px;
+      border-bottom: 1px solid var(--line);
+      background: var(--soft);
+      font-size: 13px;
+      font-weight: 750;
+      text-align: center;
+    }
+
+    .media-button {
+      display: block;
+      width: 100%;
+      padding: 0;
+      border: 0;
+      background: #ffffff;
+      cursor: zoom-in;
+    }
+
+    .media-button img {
+      display: block;
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      object-fit: contain;
+      background: #ffffff;
+    }
+
+    .media-button:focus-visible {
+      outline: 3px solid #2563eb;
+      outline-offset: -3px;
+    }
+
+    .input-stack {
+      display: grid;
+      grid-template-rows: 1fr 1fr;
+      aspect-ratio: 1 / 1;
+      background: #000000;
+    }
+
+    .input-stack .media-button {
+      min-height: 0;
+      background: #000000;
+    }
+
+    .input-stack .media-button + .media-button {
+      border-top: 1px solid #2b2b2b;
+    }
+
+    .input-stack .media-button img {
+      width: 100%;
+      height: 100%;
+      aspect-ratio: auto;
+      object-fit: contain;
+      background: #000000;
+    }
+
+    .missing-result {
+      display: grid;
+      place-items: center;
+      aspect-ratio: 1 / 1;
+      padding: 20px;
+      background: repeating-linear-gradient(-45deg, #ffffff, #ffffff 10px, #fafafa 10px, #fafafa 20px);
+      color: #8a94a4;
+      font-size: 13px;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    dialog {
+      width: min(94vw, 980px);
+      max-width: none;
+      padding: 0;
+      border: 0;
+      border-radius: 14px;
+      overflow: hidden;
+      background: #ffffff;
+      box-shadow: 0 28px 80px rgba(15, 23, 42, 0.34);
+    }
+
+    dialog::backdrop {
+      background: rgba(15, 23, 42, 0.78);
+      backdrop-filter: blur(2px);
+    }
+
+    .dialog-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 11px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    #dialog-title { font-weight: 750; }
+
+    .close-button {
+      width: 36px;
+      height: 36px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--soft);
+      color: var(--text);
+      font-size: 23px;
+      line-height: 1;
+      cursor: pointer;
+    }
+
+    #dialog-image {
+      display: block;
+      width: 100%;
+      max-height: calc(92vh - 60px);
+      object-fit: contain;
+      background: #ffffff;
+    }
+
+    @media (max-width: 720px) {
+      .page { width: min(100% - 20px, 1920px); padding-top: 82px; }
+      .case-row { padding: 10px; }
+      .comparison-grid { min-width: 1145px; }
+    }
+
+    .project-page-link {
+      position: fixed;
+      top: 14px;
+      right: 14px;
+      z-index: 1001;
+      padding: 12px 18px;
+      border: 1px solid #a52e36;
+      border-radius: 999px;
+      background: #a52e36;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 700;
+      text-decoration: none;
+      box-shadow: 0 6px 20px rgba(15, 23, 42, 0.12);
+    }
+    .project-page-link:hover { background: #87262d; }
+    .project-page-link:focus-visible { outline: 3px solid #293e39; outline-offset: 3px; }
+    @media (max-width: 760px) {
+      .project-page-link { top: 10px; right: 10px; padding: 8px 14px; font-size: 12px; }
+      .jump-links { top: 56px; left: 10px; right: 10px; border-radius: 16px; }
+      .page { padding-top: 180px; }
+    }
+  </style>
+</head>
+<body>
+  <a class="project-page-link" href="../../project-page/index.html#results">← Back to project page</a>
+  <main class="page">
+    <header class="page-header">
+      <h1 id="page-title">Video Demo of Reconstruction from Two Angiographic Masks</h1>
+      <p id="page-description">Cases with SDF-CAR results appear first. Click any image or GIF to enlarge it.</p>
+      <nav class="jump-links" aria-label="Jump to artery group">
+        <a href="index.html?artery=rca" data-artery-link="rca">RCA cases</a>
+        <a href="index.html?artery=lca" data-artery-link="lca">LCA cases</a>
+        <a href="index.html?artery=rca&amp;view=radius" data-radius-link="rca">RCA radius</a>
+        <a href="index.html?artery=lca&amp;view=radius" data-radius-link="lca">LCA radius</a>
+      </nav>
+    </header>
+
+    <div id="viewer"></div>
+  </main>
+
+  <dialog id="media-dialog" aria-labelledby="dialog-title">
+    <div class="dialog-header">
+      <span id="dialog-title"></span>
+      <button class="close-button" type="button" aria-label="Close enlarged view">&times;</button>
+    </div>
+    <img id="dialog-image" alt="">
+  </dialog>
+
+  <script>
+    const parameters = new URLSearchParams(window.location.search);
+    const currentArtery = parameters.get('artery') === 'lca' ? 'lca' : 'rca';
+    const currentView = parameters.get('view') === 'radius' ? 'radius' : 'cases';
+    const groups = [
+      {
+        artery: 'rca',
+        label: 'RCA cases',
+        cases: [476, 785, 871, 969, 289, 457, 713, 806, 837],
+        sdfCases: new Set([476, 785, 871, 969])
+      },
+      {
+        artery: 'lca',
+        label: 'LCA cases',
+        cases: [290, 457, 526, 560, 154, 444, 663, 858, 959],
+        sdfCases: new Set([290, 457, 526, 560])
+      }
+    ];
+    const group = groups.find((item) => item.artery === currentArtery);
+    const methods = [
+      { key: 'gt', label: '3D artery label', folder: 'gt', prefix: 'gt' },
+      { key: '3dgrcar', label: '3DGR-CAR', folder: '3dgrcar', prefix: '3dgrcar' },
+      { key: 'sdfcar', label: 'SDF-CAR', folder: 'sdfcar', prefix: 'sdfcar' },
+      { key: 'autocar', label: 'AutoCAR', folder: 'autocar', prefix: 'autocar' },
+      { key: 'deepca', label: 'DeepCA', folder: 'deepca', prefix: 'deepca' },
+      { key: 'ours', label: 'Ours', folder: 'ours', prefix: 'ours' }
+    ];
+
+    const viewer = document.querySelector('#viewer');
+    const dialog = document.querySelector('#media-dialog');
+    const dialogImage = document.querySelector('#dialog-image');
+    const dialogTitle = document.querySelector('#dialog-title');
+    const transparentPixel = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
+
+    if (currentView === 'radius') {
+      document.title = 'Video Demo of Our Radius Prediction';
+      document.querySelector('#page-title').textContent = 'Video Demo of Our Radius Prediction';
+      document.querySelector('#page-description').textContent =
+        `Showing ${currentArtery.toUpperCase()} radius-colored results from 1, 2, and 4 input views. Each case uses its own radius scale.`;
+      document.querySelector(`[data-radius-link="${currentArtery}"]`).setAttribute('aria-current', 'page');
+    } else {
+      document.title = 'Video Demo of Reconstruction from Two Angiographic Masks';
+      document.querySelector('#page-title').textContent = 'Video Demo of Reconstruction from Two Angiographic Masks';
+      document.querySelector('#page-description').textContent =
+        `Showing ${currentArtery.toUpperCase()} cases. Cases with SDF-CAR results appear first. Click any image or GIF to enlarge it.`;
+      document.querySelector(`[data-artery-link="${currentArtery}"]`).setAttribute('aria-current', 'page');
+    }
+
+    function mediaButton(source, alt, title) {
+      const button = document.createElement('button');
+      button.className = 'media-button';
+      button.type = 'button';
+      button.dataset.full = source;
+      button.dataset.title = title;
+
+      const image = document.createElement('img');
+      image.alt = alt;
+      if (source.toLowerCase().endsWith('.gif')) {
+        image.src = transparentPixel;
+        image.dataset.gifSource = source;
+        image.dataset.animated = 'true';
+      } else {
+        image.src = source;
+        image.loading = 'lazy';
+      }
+      button.appendChild(image);
+      return button;
+    }
+
+    async function loadSynchronizedGifRow(row) {
+      if (row.dataset.gifState === 'loading' || row.dataset.gifState === 'loaded') return;
+      const token = String((Number(row.dataset.syncToken) || 0) + 1);
+      row.dataset.syncToken = token;
+      row.dataset.gifState = 'loading';
+      const images = [...row.querySelectorAll('img[data-animated="true"]')];
+      const sources = [...new Set(images.map((image) => image.dataset.gifSource))];
+
+      await Promise.all(sources.map((source) => new Promise((resolve) => {
+        const preloader = new Image();
+        preloader.onload = resolve;
+        preloader.onerror = resolve;
+        preloader.src = source;
+      })));
+
+      if (row.dataset.syncToken !== token || row.dataset.inView !== 'true') return;
+      requestAnimationFrame(() => {
+        if (row.dataset.syncToken !== token || row.dataset.inView !== 'true') return;
+        for (const image of images) image.src = image.dataset.gifSource;
+        row.dataset.gifState = 'loaded';
+      });
+    }
+
+    function unloadGifRow(row) {
+      row.dataset.syncToken = String((Number(row.dataset.syncToken) || 0) + 1);
+      for (const image of row.querySelectorAll('img[data-animated="true"]')) image.src = transparentPixel;
+      row.dataset.gifState = 'unloaded';
+    }
+
+    function card(label) {
+      const element = document.createElement('article');
+      element.className = 'media-card';
+      const heading = document.createElement('h3');
+      heading.className = 'column-label';
+      heading.textContent = label;
+      element.appendChild(heading);
+      return element;
+    }
+
+    function renderComparison() {
+      const section = document.createElement('section');
+      section.className = 'artery-section';
+      section.id = `${group.artery}-cases`;
+
+      const heading = document.createElement('h2');
+      heading.className = 'section-heading';
+      heading.innerHTML = `${group.label} <span>${group.cases.length} cases</span>`;
+      section.appendChild(heading);
+
+      for (const caseNumber of group.cases) {
+        const hasSdf = group.sdfCases.has(caseNumber);
+        const row = document.createElement('article');
+        row.className = 'case-row';
+        row.dataset.artery = group.artery;
+        row.setAttribute('aria-label', `${group.artery.toUpperCase()} case ${caseNumber}`);
+
+        const scroll = document.createElement('div');
+        scroll.className = 'grid-scroll';
+        const grid = document.createElement('div');
+        grid.className = 'comparison-grid';
+
+        const inputCard = card('Input views');
+        const inputStack = document.createElement('div');
+        inputStack.className = 'input-stack';
+        for (const view of [0, 1]) {
+          const source = `gifs/input_views/${group.artery}/${caseNumber}_view_${view}.png`;
+          inputStack.appendChild(mediaButton(
+            source,
+            `${group.artery.toUpperCase()} case ${caseNumber}, input view ${view + 1}`,
+            `${group.artery.toUpperCase()} Case ${caseNumber} — Input view ${view + 1}`
+          ));
+        }
+        inputCard.appendChild(inputStack);
+        const legend = document.createElement('aside');
+        legend.className = 'overlay-legend';
+        legend.setAttribute('aria-label', 'Overlay color legend');
+        legend.innerHTML = `
+          <div class="legend-item"><span class="legend-swatch green"></span><span>3D artery label</span></div>
+          <div class="legend-item"><span class="legend-swatch red"></span><span>Prediction</span></div>`;
+        inputCard.appendChild(legend);
+        grid.appendChild(inputCard);
+
+        for (const method of methods) {
+          const methodCard = card(method.label);
+          methodCard.classList.add('paired-card');
+          if (method.key === 'sdfcar' && !hasSdf) {
+            const missing = document.createElement('div');
+            missing.className = 'missing-result paired-missing';
+            missing.textContent = 'Result not available for this case';
+            methodCard.appendChild(missing);
+          } else {
+            const source = `gifs/synced_pairs/${method.folder}/${method.prefix}_${group.artery}_${caseNumber}_paired.gif`;
+            const description = method.key === 'gt'
+              ? '3D artery label and green-label view'
+              : `${method.label} result and overlay`;
+            methodCard.appendChild(mediaButton(
+              source,
+              `${description} for ${group.artery.toUpperCase()} case ${caseNumber}`,
+              `${group.artery.toUpperCase()} Case ${caseNumber} — ${description}`
+            ));
+          }
+          grid.appendChild(methodCard);
+        }
+
+        scroll.appendChild(grid);
+        row.appendChild(scroll);
+        section.appendChild(row);
+      }
+      viewer.appendChild(section);
+    }
+
+    function inputCell(caseNumber, viewCount) {
+      const cell = document.createElement('div');
+      cell.className = 'input-cell';
+      const strip = document.createElement('div');
+      strip.className = 'view-strip';
+      strip.style.setProperty('--view-count', viewCount);
+      for (let view = 0; view < viewCount; view += 1) {
+        const source = `gifs/input_views/${currentArtery}/${caseNumber}_view_${view}.png`;
+        strip.appendChild(mediaButton(
+          source,
+          `${currentArtery.toUpperCase()} case ${caseNumber}, input view ${view + 1} of ${viewCount}`,
+          `${currentArtery.toUpperCase()} Case ${caseNumber} — Input view ${view + 1}`
+        ));
+      }
+      cell.appendChild(strip);
+      return cell;
+    }
+
+    function resultCell(source, alt, title, className = 'result-cell') {
+      const cell = document.createElement('div');
+      cell.className = className;
+      cell.appendChild(mediaButton(source, alt, title));
+      return cell;
+    }
+
+    function radiusPredictionSource(caseNumber, viewCount) {
+      const root = 'gifs/ours_radius_colored';
+      if (viewCount === 1) return `${root}/ours_k1/ours_${currentArtery}_${caseNumber}_k1_radius.gif`;
+      if (viewCount === 2) return `${root}/ours_k2/ours_${currentArtery}_${caseNumber}_radius.gif`;
+      return `${root}/ours_k4/ours_${currentArtery}_${caseNumber}_k4_radius.gif`;
+    }
+
+    function renderRadius() {
+      const section = document.createElement('section');
+      section.className = 'artery-section';
+      const heading = document.createElement('h2');
+      heading.className = 'section-heading';
+      heading.innerHTML = `${currentArtery.toUpperCase()} radius-colored results <span>${group.cases.length} cases</span>`;
+      section.appendChild(heading);
+
+      for (const caseNumber of group.cases) {
+        const row = document.createElement('article');
+        row.className = 'case-row';
+        row.setAttribute('aria-label', `${currentArtery.toUpperCase()} case ${caseNumber}`);
+
+        const scroll = document.createElement('div');
+        scroll.className = 'grid-scroll';
+        const grid = document.createElement('div');
+        grid.className = 'radius-grid';
+
+        for (const label of ['3D artery label', '1 view', '2 views', '4 views']) {
+          const columnLabel = document.createElement('h3');
+          columnLabel.className = 'column-label';
+          columnLabel.textContent = label;
+          grid.appendChild(columnLabel);
+        }
+        const radiusLabel = document.createElement('h3');
+        radiusLabel.className = 'column-label radius-label';
+        radiusLabel.textContent = 'Radius (mm)';
+        grid.appendChild(radiusLabel);
+
+        const blank = document.createElement('div');
+        blank.className = 'empty-cell';
+        blank.setAttribute('aria-hidden', 'true');
+        grid.appendChild(blank);
+        for (const viewCount of [1, 2, 4]) grid.appendChild(inputCell(caseNumber, viewCount));
+        const colorbarBlank = document.createElement('div');
+        colorbarBlank.className = 'empty-cell';
+        colorbarBlank.setAttribute('aria-hidden', 'true');
+        grid.appendChild(colorbarBlank);
+
+        const root = 'gifs/ours_radius_colored';
+        grid.appendChild(resultCell(
+          `${root}/gt/gt_${currentArtery}_${caseNumber}_radius.gif`,
+          `Radius-colored 3D artery label for ${currentArtery.toUpperCase()} case ${caseNumber}`,
+          `${currentArtery.toUpperCase()} Case ${caseNumber} — 3D artery label`
+        ));
+        for (const viewCount of [1, 2, 4]) {
+          grid.appendChild(resultCell(
+            radiusPredictionSource(caseNumber, viewCount),
+            `Radius-colored prediction using ${viewCount} ${viewCount === 1 ? 'view' : 'views'} for ${currentArtery.toUpperCase()} case ${caseNumber}`,
+            `${currentArtery.toUpperCase()} Case ${caseNumber} — ${viewCount} ${viewCount === 1 ? 'view' : 'views'}`
+          ));
+        }
+        grid.appendChild(resultCell(
+          `${root}/colorbars/${currentArtery}_${caseNumber}_colorbar.png`,
+          `Radius color scale for ${currentArtery.toUpperCase()} case ${caseNumber}`,
+          `${currentArtery.toUpperCase()} Case ${caseNumber} — Radius scale`,
+          'colorbar-cell'
+        ));
+
+        scroll.appendChild(grid);
+        row.appendChild(scroll);
+        section.appendChild(row);
+      }
+      viewer.appendChild(section);
+    }
+
+    if (currentView === 'radius') renderRadius();
+    else renderComparison();
+
+    const gifRowObserver = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        entry.target.dataset.inView = entry.isIntersecting ? 'true' : 'false';
+        if (entry.isIntersecting) loadSynchronizedGifRow(entry.target);
+        else unloadGifRow(entry.target);
+      }
+    }, { rootMargin: '200px 0px' });
+
+    document.querySelectorAll('.case-row').forEach((row) => gifRowObserver.observe(row));
+    document.querySelectorAll('.media-button').forEach((button) => {
+      button.addEventListener('click', () => {
+        dialogImage.src = button.dataset.full;
+        dialogImage.alt = button.querySelector('img').alt;
+        dialogTitle.textContent = button.dataset.title;
+        dialog.showModal();
+      });
+    });
+
+    document.querySelector('.close-button').addEventListener('click', () => dialog.close());
+    dialog.addEventListener('click', (event) => {
+      if (event.target === dialog) dialog.close();
+    });
+  </script>
+</body>
+</html>

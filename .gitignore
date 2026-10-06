@@ -1,0 +1,57 @@
+# Python caches, environments, and build products
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+.venv/
+venv/
+/build/
+/dist/
+.coverage
+.coverage.*
+/htmlcov/
+
+# Local machine settings and secrets
+.DS_Store
+._*
+.idea/
+.vscode/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Local datasets and generated results (root only: keep vessel_code/data/)
+/data/
+/runs/
+/outputs/
+/wandb/
+
+# Release only the two selected reconstruction checkpoints
+/ckpt/*
+!/ckpt/rca/
+!/ckpt/lca/
+/ckpt/rca/*
+/ckpt/lca/*
+!/ckpt/rca/best.pt
+!/ckpt/lca/best.pt
+
+# Local publication planning and transfer audit records
+/docs/PUBLICATION_CHECKLIST.md
+/docs/release_notes.md
+/TRANSFER_MANIFEST.json
+/verification_checkpoint_parity.json
+
+# Superseded interactive mesh viewer and earlier rotation exports
+/project-page/mesh-viewer.js
+/project-page/assets/transfer/asoca/ground-truth-mesh.js
+/project-page/assets/transfer/asoca/asoca-mesh-rotation.gif
+/project-page/assets/transfer/asoca/asoca-mesh-rotation-still.png
+/project-page/assets/transfer/asoca/asoca_gt.gif
+
+# Local rendering notes and replaced angiography mask
+/project-page/assets/transfer/asoca/mesh-render-notes.txt
+/project-page/assets/transfer/autocar/case_10_view_1_original_segmented.png

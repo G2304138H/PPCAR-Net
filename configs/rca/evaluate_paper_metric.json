@@ -1,0 +1,11 @@
+{
+  "mode": "paper_metric",
+  "artery_type": "rca",
+  "checkpoint": "ckpt/rca/best.pt",
+  "input_dir": "data/evaluation/rca",
+  "output_dir": "outputs/rca_paper_metric",
+  "case_ids": null,
+  "device": "auto",
+  "require_centerline": true,
+  "num_views": 2
+}

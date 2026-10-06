@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vessel-code"
+version = "0.1.0"
+license = {file = "LICENSE"}
+description = "B-spline coronary reconstruction with projection-guided geometry and radius refinement"
+requires-python = ">=3.10"
+dependencies = ["numpy", "torch", "torchvision", "scipy", "scikit-image", "matplotlib", "imageio", "tqdm", "geomdl", "Pillow"]
+
+[project.optional-dependencies]
+test = ["pytest"]
+backbone = ["huggingface_hub", "einops", "safetensors", "opencv-python", "vggt @ git+https://github.com/facebookresearch/vggt.git"]
+
+[project.scripts]
+vessel-train = "vessel_code.train:main"
+vessel-evaluate = "vessel_code.evaluate:main"
+vessel-prepare = "vessel_code.prepare:main"
+
+[tool.setuptools.packages.find]
+include = ["vessel_code*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

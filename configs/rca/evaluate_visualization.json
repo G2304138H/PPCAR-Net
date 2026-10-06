@@ -1,0 +1,10 @@
+{
+  "mode": "visualization",
+  "artery_type": "rca",
+  "checkpoint": "ckpt/rca/best.pt",
+  "input_dir": "data/evaluation/rca",
+  "output_dir": "outputs/rca_visualization",
+  "case_ids": null,
+  "device": "auto",
+  "num_views": 2
+}

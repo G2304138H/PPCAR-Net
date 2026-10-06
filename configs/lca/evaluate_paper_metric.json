@@ -1,0 +1,11 @@
+{
+  "mode": "paper_metric",
+  "artery_type": "lca",
+  "checkpoint": "ckpt/lca/best.pt",
+  "input_dir": "data/evaluation/lca",
+  "output_dir": "outputs/lca_paper_metric",
+  "case_ids": null,
+  "device": "auto",
+  "require_centerline": true,
+  "num_views": 2
+}

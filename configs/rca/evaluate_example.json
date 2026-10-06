@@ -1,0 +1,13 @@
+{
+  "mode": "visualization",
+  "input_format": "prepared_projections",
+  "artery_type": "rca",
+  "checkpoint": "ckpt/rca/best.pt",
+  "input_dir": "examples/rca",
+  "output_dir": "outputs/rca_example",
+  "case_ids": [
+    "rca_0457"
+  ],
+  "device": "auto",
+  "num_views": 2
+}

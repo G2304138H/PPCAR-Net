@@ -1,0 +1,17 @@
+{
+  "extends": "train_coarse.json",
+  "stage": "geometry",
+  "experiment_name": "rca_geometry",
+  "initial_checkpoint": "runs/rca_coarse/best.pt",
+  "centerline_initialization_checkpoint": "ckpt/rca/best.pt",
+  "train_bspline_refiner_only": true,
+  "model": {
+    "use_bspline_control_refiner": true,
+    "use_radius_evidence_refiner": false
+  },
+  "loss": {
+    "bspline_refiner_coarse_loss_weight": 0.0,
+    "bspline_refiner_intermediate_loss_weight": 0.25,
+    "decoded_radius_loss_weight": 0.0
+  }
+}

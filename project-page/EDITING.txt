@@ -1,0 +1,12 @@
+Local project page
+
+Open index.html in a browser. No server, installation or internet is required.
+Keep project-page next to figures; media links use ../figures.
+
+index.html: paper title, authors, summary, figure captions and pending publication links.
+styles.css: layout and appearance.
+script.js: case selection, rotation toggle and figure enlargement.
+assets/: first-frame previews extracted from the supplied GIFs for paused/reduced-motion display.
+
+Before public release: update authors and affiliations; replace the pending Paper and Code spans with actual links; confirm submission/publication wording; add the final citation.
+Existing figures and the full video gallery are reused without modification.

@@ -1,0 +1,10 @@
+{
+  "mode": "visualization",
+  "artery_type": "lca",
+  "checkpoint": "ckpt/lca/best.pt",
+  "input_dir": "data/evaluation/lca",
+  "output_dir": "outputs/lca_visualization",
+  "case_ids": null,
+  "device": "auto",
+  "num_views": 2
+}

@@ -1,0 +1,62 @@
+name: Deploy project page
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'project-page/**'
+      - 'figures/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      - name: Package website and media
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p _site
+          git archive HEAD project-page figures | tar -x -C _site
+          touch _site/.nojekyll
+          cat > _site/index.html <<'HTML'
+          <!doctype html>
+          <html lang="en">
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <meta http-equiv="refresh" content="0; url=project-page/">
+            <title>VesselCode</title>
+            <script>location.replace('project-page/' + location.search + location.hash);</script>
+          </head>
+          <body><a href="project-page/">Open the VesselCode project page</a></body>
+          </html>
+          HTML
+          test -f _site/project-page/index.html
+          test -f _site/figures/video_demo/index.html
+      - name: Upload website artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+      - name: Deploy website
+        id: deployment
+        uses: actions/deploy-pages@v4
