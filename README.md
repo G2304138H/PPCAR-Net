@@ -2,7 +2,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/arXiv-coming%20soon-b31b1b" alt="arXiv: coming soon">
-  <a href="https://G2304138H.github.io/vessel-code/"><img src="https://img.shields.io/badge/Project%20Page-website-4c9c2e" alt="Project Page"></a>
+  <a href="https://G2304138H.github.io/PPCAR-Net/"><img src="https://img.shields.io/badge/Project%20Page-website-4c9c2e" alt="Project Page"></a>
 </p>
 
 <!-- Add the arXiv URL once the preprint is public. -->

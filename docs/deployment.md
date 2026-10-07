@@ -12,7 +12,7 @@ planning records are not included in the website artifact.
 4. Open **Actions → Deploy project page → Run workflow**, select `main`, and run it.
 5. Wait for the deployment to succeed. Open the URL shown by the deployment.
 
-Website: https://G2304138H.github.io/vessel-code/
+Website: https://G2304138H.github.io/PPCAR-Net/
 
 The root redirects to `project-page/`. The full gallery remains available at
 `figures/video_demo/index.html`; the existing relative image, video and return
