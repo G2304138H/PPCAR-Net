@@ -1,4 +1,4 @@
-<h1 align="center">Projection-Refined Parametric 3D Coronary Artery Reconstruction from Sparse X-ray Angiographic Views</h1>
+<h1 align="center">PPCAR-Net: Projection-Refined Parametric 3D Coronary Artery Reconstruction from Sparse X-ray Angiographic Views</h1>
 
 <p align="center">
   <img src="https://img.shields.io/badge/arXiv-coming%20soon-b31b1b" alt="arXiv: coming soon">
@@ -23,7 +23,7 @@
 
 ## Overview
 
-VesselCode reconstructs explicit, branch-structured 3D coronary arteries from a small number (1–7) of calibrated 2D artery segmentation masks, with separate models for the right coronary artery (RCA) and left coronary artery (LCA). Each artery is represented by branch-existence predictions, B-spline control points defining continuous branch centrelines, and dense radii associated with sampled centreline points. A coarse predictor combines frozen VGGT image features with learned branch queries to estimate the initial vessel code. Projection-guided geometry and radius refiners then project this coarse reconstruction into the input views, sample local image evidence, and apply learned residual corrections to the centrelines and radii. The resulting representation directly provides centreline geometry and vessel thickness for 3D surface reconstruction, without requiring graph extraction from a predicted volume.
+PPCAR-Net (Projection-Refined Parametric 3D Coronary Artery Reconstruction Network) reconstructs explicit, branch-structured 3D coronary arteries from a small number (1–7) of calibrated 2D artery segmentation masks, with separate models for the right coronary artery (RCA) and left coronary artery (LCA). Each artery is represented by branch-existence predictions, B-spline control points defining continuous branch centrelines, and dense radii associated with sampled centreline points. We call this representation **vessel code**. A coarse predictor combines frozen VGGT image features with learned branch queries to estimate the initial vessel code. Projection-guided geometry and radius refiners then project this coarse reconstruction into the input views, sample local image evidence, and apply learned residual corrections to the centrelines and radii. The resulting representation directly provides centreline geometry and vessel thickness for 3D surface reconstruction, without requiring graph extraction from a predicted volume.
 
 Together, our model provides:
 
