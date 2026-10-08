@@ -1,11 +1,9 @@
 <h1 align="center">PPCAR-Net: Projection-Refined Parametric 3D Coronary Artery Reconstruction from Sparse X-ray Angiographic Views</h1>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/arXiv-coming%20soon-b31b1b" alt="arXiv: coming soon">
+  <a href="https://arxiv.org/abs/2610.09383"><img src="https://img.shields.io/badge/arXiv-2610.09383-b31b1b" alt="arXiv: 2610.09383"></a>
   <a href="https://G2304138H.github.io/PPCAR-Net/"><img src="https://img.shields.io/badge/Project%20Page-website-4c9c2e" alt="Project Page"></a>
 </p>
-
-<!-- Add the arXiv URL once the preprint is public. -->
 
 <p align="center">
   Yu Ren<sup>1,2</sup>, Hwee Kuan Lee<sup>1</sup>, Tat-Jen Cham<sup>2</sup>, Jonathan Yap<sup>3</sup>, Khung Keong Yeo<sup>3</sup>
@@ -18,7 +16,15 @@
 </p>
 
 ```bibtex
-% BibTeX citation will be added when the arXiv preprint is available.
+@misc{ren2026ppcarnet,
+  title={{PPCAR-Net}: Projection-Refined Parametric 3D Coronary Artery Reconstruction from Sparse X-ray Angiographic Views},
+  author={Ren, Yu and Lee, Hwee Kuan and Cham, Tat-Jen and Yap, Jonathan and Yeo, Khung Keong},
+  year={2026},
+  eprint={2610.09383},
+  archivePrefix={arXiv},
+  primaryClass={cs.CV},
+  url={https://arxiv.org/abs/2610.09383}
+}
 ```
 
 ## Overview

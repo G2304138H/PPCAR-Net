@@ -67,4 +67,4 @@ img.ground-truth-flipped,.ground-truth-flipped .narrowing-context,.ground-truth-
 
 .affiliations{flex-direction:column;align-items:center}
 
-.actions .button{gap:9px}.button-icon{width:19px;height:19px;flex-shrink:0}.arxiv-mark{font-family:Georgia,serif;font-size:19px;line-height:1;letter-spacing:-1px;color:#a52e36}.arxiv-mark>span{font-size:23px}
+.actions .button{gap:9px}.button-icon{width:19px;height:19px;flex-shrink:0}.arxiv-smiley{width:20px;height:20px;object-fit:contain}
