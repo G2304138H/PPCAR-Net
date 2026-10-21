@@ -124,10 +124,27 @@ The output contains all seven projection masks, coarse and refined prediction NP
 
 For an LCA case, use the corresponding configuration in `configs/lca/`, set `artery_type` to `lca`, and supply the LCA checkpoint and annotation.
 
+## Real X-ray angiography (CoronaryDominance)
+
+`vessel_code/real_xray/` runs the same checkpoints on real angiograms segmented with
+[angioseg-nnunet](https://github.com/G2304138H/angioseg-nnunet) (nnU-Net, XRAVOS or SMART masks). Each case is one
+study × artery holding every view's keyframe (the frame with the most segmented vessel). The model receives
+`num_views` of them; all other views are held out to check the reconstruction.
+
+```bash
+python -m vessel_code.real_xray.infer --config configs/real_xray/lca.json \
+    --input_dir <recon_inputs>/nnunet_A/lca --output_dir outputs/real_xray/nnunet_A/lca
+```
+
+Per case it writes a rotating 3D surface GIF, a radius-coloured GIF, and reprojections of the predicted surface onto
+the input and held-out views, each over the raw X-ray and over the segmentation mask, plus per-view Dice in
+`summary.csv`. See [docs/real_xray.md](docs/real_xray.md) for the input format, camera mapping and options.
+
 ## Repository layout
 
 ```text
 vessel_code/               Parametric model, refiners, data loader and evaluation
+vessel_code/real_xray/     Inference and visualisation on real X-ray keyframes
 configs/{rca,lca}/          Model and evaluation configurations
 ckpt/                      Bundled RCA and LCA reconstruction checkpoints
 examples/                  Bundled RCA/LCA evaluation cases and synthetic loader example

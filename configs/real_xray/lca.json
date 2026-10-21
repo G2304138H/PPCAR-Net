@@ -1,0 +1,18 @@
+{
+  "artery_type": "lca",
+  "checkpoint": "ckpt/lca/best.pt",
+  "input_dir": "data/real_xray/nnunet_A/lca",
+  "output_dir": "outputs/real_xray/nnunet_A/lca",
+  "case_ids": null,
+  "device": "auto",
+  "num_views": 2,
+  "view_selection": "max_separation",
+  "input_views": "auto",
+  "input_recentering_iterations": 0,
+  "align_reprojection": true,
+  "branch_threshold": 0.5,
+  "save_gifs": true,
+  "gif_frames": 60,
+  "gif_fps": 12,
+  "overwrite": false
+}
