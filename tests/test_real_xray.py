@@ -22,7 +22,7 @@ def _write_case(path, artery="lca", n=3, shift=(9, -6)):
         path, format_version=np.int32(1), input_format=np.asarray("real_xray_keyframes"),
         images=images, raw_images=images * 0.5, theta_deg=theta, phi_deg=phi,
         view_features=view_features_from_angles(theta, phi),
-        primary_angle_deg=(90 - theta) if artery == "lca" else -theta, secondary_angle_deg=90 - phi,
+        primary_angle_deg=(90 - theta + 180) % 360 - 180, secondary_angle_deg=90 - phi,
         clinical_views=ex["clinical_views"][:n], angle_group=np.arange(n, dtype=np.int32),
         raw_full=(images * 255).astype(np.uint8), label_full=(images > 0.5).astype(np.uint8),
         full_shape=np.full((n, 2), 256, np.int32), model_to_full=eye,

@@ -25,9 +25,12 @@ The files live in `<export>/<method>/lca/` and `<export>/<method>/rca/`; point `
 
 ### How real views are mapped into the model camera
 
-- **Angles.** The bundled examples store their clinical labels, which fix the convention:
-  LCA `theta = 90 − primary`, RCA `theta = −primary`, both `phi = 90 − secondary`
-  (primary + = LAO, secondary + = CRA). The RCA and LCA training frames differ by 90° about the head–foot axis.
+- **Angles.** The exporter follows the convention of this code and its checkpoints (the clinical labels of the camera
+  tables in `docs/data_format.md`): LCA `theta = wrap(90° − primary)`, RCA `theta = −primary`, both `phi = 90° − secondary`
+  (primary + = LAO, secondary + = CRA). Every training anchor label maps exactly onto its projector angles.
+  The paper (App. A.1) writes `theta = wrap(90° − primary)` for RCA as well, 90° from the RCA camera table; the
+  exporter's `--angle_convention paper` reproduces that for comparison. Each case file stores `nearest_anchor_deg`, the
+  angle between each view and the closest training view.
 - **Orientation.** In the model's images, rows point towards the patient's head and columns towards the patient's
   right; DICOM display has the head at the top and the patient's left on the right. The exporter therefore rotates
   every frame by 180° (`--orientation rot180`).
@@ -36,9 +39,11 @@ The files live in `<export>/<method>/lca/` and `<export>/<method>/rca/`; point `
   spacing, so the exporter assumes 0.28 mm per pixel at the isocentre for the 512×512 frames
   (`--src_iso_pixel_mm`), one scale per case. `--scale_mode extent` instead matches the median vessel extent to that
   of the training masks.
-- **Centring.** Training projections are centred on the 3D main-artery centroid. Real views have no calibrated
-  isocentre (and the table may be panned between runs), so every view is centred on its own mask centroid. This is
-  only approximately consistent between views (see section 4).
+- **Centring.** Training projections are centred on the 3D main-artery centroid (the isocentre is moved there before
+  projecting). Real views keep their raw C-arm geometry by default: the image centre is the isocentre, which is
+  consistent between views as long as the table is not moved, but the artery is not centred the way the training
+  projections are. `--center mask_centroid` instead centres each view on its own mask (centred, but not consistent
+  between views). See section 4.
 
 ## 2. Run
 
@@ -113,17 +118,20 @@ with the same angles as an input view (another video at that angle) is labelled 
 ## 4. Reading the reprojection numbers
 
 - `dice_*` compares the reprojected surface with the segmentation mask in model space, exactly as exported.
-- `dice_*_aligned` first moves the reprojection by its best 2D translation (up to 48 px). Because each view is
-  centred on its own mask centroid, a correct 3D shape can still be off by a translation; with the true 3D artery of
-  the bundled examples rendered as synthetic angiograms, the aligned Dice is 0.96–0.98 in input and held-out views
-  while the raw Dice is 0.14–0.66. The aligned value measures shape agreement; the shift is stored per view.
+- `dice_*_aligned` first moves the reprojection by its best 2D translation (up to 48 px). Without a calibrated
+  isocentre (table panning, or `--center mask_centroid`), a correct 3D shape can still be off by a translation; with
+  the true 3D artery rendered as synthetic angiograms and centred per view, the aligned Dice is 0.96–0.98 in input and
+  held-out views while the raw Dice is 0.14–0.66. The aligned value measures shape agreement; the shift is stored per
+  view.
 - On held-out views both numbers are an honest check of the 3D shape: the model never saw these masks.
 
 ## 5. Checks before trusting a full run
 
 1. Open a few `_qa/<case>.png` sheets from the exporter: row 2 shows each view in model space.
 2. Run 10–20 cases and compare the held-out aligned Dice for `--orientation rot180` (default) against `none`;
-   the right orientation gives clearly higher held-out agreement.
+   the right orientation gives clearly higher held-out agreement. Do the same for RCA with
+   `--angle_convention code` (default) against `paper`, and for `--center image_center` (default) against
+   `mask_centroid`.
 3. If arteries look too small or too large relative to the training masks, change `--src_iso_pixel_mm` or use
    `--scale_mode extent` in the exporter.
 

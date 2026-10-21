@@ -67,10 +67,10 @@ def load_case(path: str | Path, artery_type: str) -> RealXrayCase:
         if not np.allclose(feats, view_features_from_angles(theta, phi), atol=1e-5):
             raise ValueError(f"{path}: view_features disagree with theta/phi")
         meta_keys = ["case_id", "study_id", "subset", "seg_method", "seg_dir", "mask_key", "orientation",
-                     "center_mode", "scale_mode", "scale_full_to_model", "src_iso_pixel_mm"]
+                     "center_mode", "scale_mode", "scale_full_to_model", "src_iso_pixel_mm", "angle_convention"]
         meta = {k: (z[k].item() if z[k].ndim == 0 else z[k].tolist()) for k in meta_keys if k in z.files}
         for k in ("primary_angle_deg", "secondary_angle_deg", "keyframe_index", "n_frames",
-                  "crop_clipped_fraction", "video_stem", "video_path"):
+                  "crop_clipped_fraction", "nearest_anchor_deg", "video_stem", "video_path"):
             if k in z.files:
                 meta[k] = z[k].tolist()
         return RealXrayCase(
