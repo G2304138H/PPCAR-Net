@@ -25,20 +25,27 @@ The files live in `<export>/<method>/lca/` and `<export>/<method>/rca/`; point `
 
 ### How real views are mapped into the model camera
 
-- **Angles.** The exporter follows the convention of this code and its checkpoints (the clinical labels of the camera
-  tables in `docs/data_format.md`): LCA `theta = wrap(90° − primary)`, RCA `theta = −primary`, both `phi = 90° − secondary`
-  (primary + = LAO, secondary + = CRA). Every training anchor label maps exactly onto its projector angles.
-  The paper (App. A.1) writes `theta = wrap(90° − primary)` for RCA as well, 90° from the RCA camera table; the
-  exporter's `--angle_convention paper` reproduces that for comparison. Each case file stores `nearest_anchor_deg`, the
-  angle between each view and the closest training view.
+- **Angles.** `theta = wrap(90° − primary)`, `phi = 90° − secondary` for both arteries (paper, App. A.1; primary + = LAO,
+  secondary + = CRA). The projector looks along `(sin φ cos θ, sin φ sin θ, cos φ)` in the LAS frame of the training CTs,
+  and the training masks were rendered with it, so this pairs each real image with the θ at which the model saw that
+  side of the heart. The clinical labels attached to the RCA camera table in `docs/data_format.md` (e.g. `LAO 60` →
+  θ = −60) are 90° off that projector. On real angiograms the RCA in LAO 25–35 (the "C") matches the training anatomy
+  at the paper's θ ≈ 60, not at the label θ ≈ −30 (near-vertical vessel). The checkpoints are unchanged; physically the
+  RCA training views lie around LAO 15 and LAO 70 (plus views from behind), so real RCA views are often 15–30° from the
+  nearest one. The exporter's `--angle_convention code` (RCA `theta = −primary`) is kept for comparison. Each case file
+  stores `nearest_anchor_deg`, the angle between each view and the closest training view.
 - **Orientation.** In the model's images, rows point towards the patient's head and columns towards the patient's
   right; DICOM display has the head at the top and the patient's left on the right. The exporter therefore rotates
   every frame by 180° (`--orientation rot180`).
 - **Scale.** The model images have 0.65 mm (LCA) / 0.55 mm (RCA) detector pixels with SID 0.90 m and source–isocentre
-  0.75 m, i.e. 0.542 / 0.458 mm per pixel at the isocentre. The CoronaryDominance files keep no SID, SOD or pixel
-  spacing, so the exporter assumes 0.28 mm per pixel at the isocentre for the 512×512 frames
-  (`--src_iso_pixel_mm`), one scale per case. `--scale_mode extent` instead matches the median vessel extent to that
-  of the training masks.
+  0.75 m, i.e. 0.542 / 0.458 mm per pixel at the isocentre. The CoronaryDominance files keep no geometry; the dataset
+  authors' reference values give 0.3418 mm × 765 / 1137 = **0.2300 mm** per pixel at the isocentre for the Allura
+  subsets (`main_normal`, `main_others`). The Azurion subset (`domain_shift_dataset`) was cropped and resized, so its
+  pixel size is measured from the data (angioseg-nnunet step 11) and passed to the exporter. Each case stores
+  `system`, `src_iso_pixel_mm` and `scale_calibration`, and `summary.csv` repeats subset, system and pixel size, so
+  results can be reported per system. Magnification differs (real SID/SOD ≈ 1.49 vs 1.2 in the model), but the
+  depth dependence of magnification is set by the SOD (765–810 vs 750 mm), so matching the isocentre pixel size
+  is the right correction.
 - **Centring.** Training projections are centred on the 3D main-artery centroid (the isocentre is moved there before
   projecting). Real views keep their raw C-arm geometry by default: the image centre is the isocentre, which is
   consistent between views as long as the table is not moved, but the artery is not centred the way the training
@@ -47,16 +54,51 @@ The files live in `<export>/<method>/lca/` and `<export>/<method>/rca/`; point `
 
 ## 2. Run
 
+**Environment:** the existing venv `/export/home2/reny0012/vir_env/vesseltree` (PyTorch, this package, VGGT); no extra
+setup. VGGT-1B is loaded from the usual HuggingFace cache; if a compute node has no internet and the weights are
+cached, add `HF_HUB_OFFLINE=1` to the job's `--export`.
+
+**GPU job** (`slurm/real_xray_infer.sbatch`, one job, all cases; set `REPO_ROOT` if the clone is not at
+`/export/home2/reny0012/code/PPCAR-Net`):
+
 ```bash
-python -m vessel_code.real_xray.infer --config configs/real_xray/lca.json \
-    --input_dir /dataset/reny0012/angioseg/recon_inputs/nnunet_A/lca \
-    --output_dir outputs/real_xray/nnunet_A/lca
+sbatch --export=ALL,ART=lca,METHOD=xravos_A_v2,LIMIT=5 slurm/real_xray_infer.sbatch   # test: first 5 cases
+sbatch --export=ALL,ART=lca,METHOD=xravos_A_v2 slurm/real_xray_infer.sbatch           # all LCA cases
+# options: CAMERA=acquisition|training, NUM_VIEWS=2, CASES="Study00605_RCA Study00087_RCA"
 ```
+Input: `/dataset/reny0012/angioseg/recon_inputs/<METHOD>/<ART>/`; output:
+`/dataset/reny0012/angioseg/recon_outputs/<METHOD>_<camera>[_first<LIMIT>]/<ART>/`.
+
+Directly: `python -m vessel_code.real_xray.infer --config configs/real_xray/lca.json --input_dir ... --output_dir ...`
+with optional `--camera`, `--num_views`, `--limit`, `--case_ids`, `--shard K --num_shards N`.
+
+### Camera at inference
+
+The coarse predictor has no camera input (`use_ray_camera_encoding: false` in both checkpoints); only the B-spline
+geometry refiner and the radius refiner (and its surface projector) project into the views. Their SID, SOD and
+detector pixel spacing are plain attributes, set per case before the forward pass, so no weights change.
+
+- `camera: "acquisition"` (default): SID and SOD of the case's system from `acquisition_geometry` in the config
+  (Allura 1137 / 765 mm, Azurion 1195 / 810 mm; keyed by `system` from step 08, `default` otherwise). The detector pixel
+  spacing is derived so that the camera describes the exported 256x256 grid: isocentre pixel (0.5417 mm LCA,
+  0.4583 mm RCA) x SID / SOD, e.g. 0.8051 / 0.6812 mm for Allura. Leave `imager_pixel_spacing_mm` at `null`: the real
+  detector pixel (0.3418 mm) belongs to the original 512 frames, not to the resampled grid; a value that does not match
+  the grid is reported as a warning.
+- `camera: "training"`: the checkpoint's camera (900 / 750 mm, 0.65 / 0.55 mm).
+
+The reprojections and overlays use the same camera, and `summary.csv` records it (`camera`, `camera_sid_mm`,
+`camera_sod_mm`, `camera_pixel_mm`). With matched isocentre pixel size the two cameras differ only in perspective
+(source–isocentre 765 vs 750 mm): on a synthetic Allura acquisition (real SID/SOD/pixel, through step 08) the true
+artery reprojects at Dice 0.974 with either camera and no 2D shift.
 
 Config keys (`configs/real_xray/{lca,rca}.json`):
 
 | Key | Default | Meaning |
 | --- | --- | --- |
+| `output_mode` | `full` | `full`: GIFs, per-view overlays and `summary.png`; `summary`: only `summary.png` per case |
+| `camera` | `acquisition` | `acquisition` or `training` (see above) |
+| `acquisition_geometry` | Allura 1137/765, Azurion 1195/810 mm | SID / SOD per system (`sid_mm`, `sod_mm`), plus `default` |
+| `imager_pixel_spacing_mm` | null | null = derived from the exported grid (recommended) |
 | `num_views` | 2 | input views given to the model (1–7) |
 | `view_selection` | `max_separation` | `max_separation`: one view per direction (the one with most vessel), then the set with the largest smallest angle between views (capped at 90°); `first`: file order |
 | `input_views` | `auto` | or a list of view indices for every case, or `{"Study01126_LCA": [0, 2]}` |
@@ -66,54 +108,47 @@ Config keys (`configs/real_xray/{lca,rca}.json`):
 | `save_gifs`, `gif_frames`, `gif_fps` | true, 60, 12 | rotating 3D surfaces |
 | `case_ids`, `limit`, `overwrite` | null, –, false | case selection; finished cases are skipped unless `overwrite` |
 
-`--shard K --num_shards N` splits the cases for Slurm arrays. Every case is independent; an error is recorded in
-`summary.csv` and the run continues.
-
-Slurm example (one GPU; `--array=0-3` with `--num_shards 4` to split):
-
-```bash
-#!/bin/bash
-#SBATCH -J ppcar_realxray
-#SBATCH -o /export/home2/reny0012/result/runlog/ppcar_realxray_%A_%a.log
-#SBATCH -e /export/home2/reny0012/result/runlog/ppcar_realxray_%A_%a.err
-#SBATCH -p RTXA6Kq
-#SBATCH -w node11
-#SBATCH --gres=gpu:1
-#SBATCH -c 8
-#SBATCH --array=0
-set -euo pipefail
-module load python3
-source /export/home2/reny0012/vir_env/<your vessel-code venv>/bin/activate
-module load cuda12.5/toolkit/12.5.1
-cd /export/home2/reny0012/code/PPCAR-Net
-METHOD=${METHOD:-nnunet_A}; ART=${ART:-lca}
-python -m vessel_code.real_xray.infer --config configs/real_xray/$ART.json \
-  --input_dir /dataset/reny0012/angioseg/recon_inputs/$METHOD/$ART \
-  --output_dir /dataset/reny0012/angioseg/recon_outputs/$METHOD/$ART \
-  --shard ${SLURM_ARRAY_TASK_ID:-0} --num_shards ${NUM_SHARDS:-1}
-```
-Submit with e.g. `sbatch --export=ALL,METHOD=xravos_A,ART=rca realxray.sbatch`.
+Every case is independent; an error is recorded in `summary.csv` and the run continues.
 
 ## 3. Output
 
+Two modes (`output_mode`, or `OUTPUT_MODE=` for the sbatch):
+
+- **`summary`** - one PNG per case, `<case>/summary.png`, also collected in `<output_dir>/_summary/<case>.png` for quick
+  browsing. One row per view (its keyframe), six panels from left to right, all in the keyframe's original orientation
+  and resolution:
+  1. raw X-ray, 2. raw X-ray + reprojected 3D surface (orange), 3. segmentation mask (the reconstruction input),
+  4. segmentation vs reprojection (green both, red reprojection only, white mask only), 5. the predicted 3D surface seen
+  along this view's X-ray direction (shaded, same camera and position as the reprojection), 6. the same coloured by the
+  predicted radius (red smallest - green largest, colour bar in mm).
+  The row label gives the view (e.g. `LAO 30, CRA 0`), **`INPUT to 3D reconstruction`** (green, framed) or
+  `NOT input (held-out)` (orange), the keyframe (frame / frames) and the view's Dice. The title gives the case, the
+  segmentation method, the system and pixel size, the camera, the inputs and the mean input / held-out Dice.
+- **`full`** (default) - the summary PNG plus:
+
 ```text
 <output_dir>/
-  summary.csv                               one row per case: input views, mean reprojection Dice
+  summary.csv                               one row per case: system, camera, input views, mean reprojection Dice
   run.json
+  _summary/<case>.png                       every case's summary sheet in one folder
   <case_name>/
-    surface_3d.gif                          rotating predicted 3D surface
-    surface_3d_radius.gif                   the same, coloured by predicted radius
-    reprojection/input_views_on_xray.png    reprojection onto the input views, over the raw X-ray
-    reprojection/input_views_on_mask.png    ... against the segmentation (green both, red prediction only, white mask only)
-    reprojection/heldout_views_on_xray.png  views not given to the model
-    reprojection/heldout_views_on_mask.png
-    reprojection/views/v<i>_<input|heldout>_<xray|mask>.png   full-resolution single views
-    prediction_refined.npz, prediction_coarse.npz             vessel code [M,200,4] (centred mm), branch_exists
+    summary.png                             the summary sheet (both modes)
+    surface_3d.gif                          rotating predicted 3D surface                         (full only)
+    surface_3d_radius.gif                   the same, coloured by predicted radius                (full only)
+    reprojection/input_views_on_xray.png    reprojection onto the input views, over the raw X-ray (full only)
+    reprojection/input_views_on_mask.png    ... against the segmentation                          (full only)
+    reprojection/heldout_views_on_xray.png  views not given to the model                          (full only)
+    reprojection/heldout_views_on_mask.png                                                        (full only)
+    reprojection/views/v<i>_<input|heldout>_<xray|mask>.png   full-resolution single views        (full only)
+    prediction_refined.npz, prediction_coarse.npz             vessel code [M,200,4] (centred mm), branch_exists, camera
     case_summary.json                       per-view Dice (raw and translation-aligned) and the alignment shift
 ```
 
-Overlays are drawn on the full-resolution keyframe in its original (DICOM display) orientation. A held-out view
-with the same angles as an input view (another video at that angle) is labelled "same angle as an input".
+Overlays and 3D panels are drawn on the full-resolution keyframe in its original (DICOM display) orientation. The 3D
+panels are rendered with the same camera as the reprojection (perspective from the source, surfaces nearer the detector
+in front, as in the clinical display); on synthetic data their footprint matches the segmentation at Dice 0.99. A
+held-out view with the same angles as an input view (another video at that angle) is labelled "same angle as an input".
+`summary` mode takes about 10 s per case on CPU for the drawing (plus the GPU forward pass); `full` about twice that.
 
 ## 4. Reading the reprojection numbers
 
@@ -130,10 +165,10 @@ with the same angles as an input view (another video at that angle) is labelled 
 1. Open a few `_qa/<case>.png` sheets from the exporter: row 2 shows each view in model space.
 2. Run 10–20 cases and compare the held-out aligned Dice for `--orientation rot180` (default) against `none`;
    the right orientation gives clearly higher held-out agreement. Do the same for RCA with
-   `--angle_convention code` (default) against `paper`, and for `--center image_center` (default) against
+   `--angle_convention paper` (default) against `code`, and for `--center image_center` (default) against
    `mask_centroid`.
-3. If arteries look too small or too large relative to the training masks, change `--src_iso_pixel_mm` or use
-   `--scale_mode extent` in the exporter.
+3. Compare Allura and Azurion cases in `summary.csv` (`system` column). For Azurion the image centre is not the
+   isocentre (varying crop), so expect larger 2D shifts there.
 
 Real angiograms differ from the CT-derived training projections (segmentation errors, catheter, overlap, unknown
 magnification), so treat these reconstructions as qualitative until validated against a reference.

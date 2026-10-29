@@ -14,6 +14,49 @@ MODEL_CAMERA = {  # what the released checkpoints were trained with (configs/*/t
     "lca": dict(image_dim=256, sid=0.9, source_to_iso=0.75, imager_pixel_spacing=0.65),
     "rca": dict(image_dim=256, sid=0.9, source_to_iso=0.75, imager_pixel_spacing=0.55),
 }
+# Acquisition geometry of the CoronaryDominance systems (dataset authors' reference values, medians; mm).
+DEFAULT_ACQUISITION_GEOMETRY = {
+    "allura": {"sid_mm": 1137.0, "sod_mm": 765.0},
+    "azurion": {"sid_mm": 1195.0, "sod_mm": 810.0},
+}
+
+
+def model_iso_pixel_mm(artery: str) -> float:
+    """Pixel size at the isocentre of the 256x256 model images (the grid step 08 resamples every view onto)."""
+    c = MODEL_CAMERA[artery]
+    return c["imager_pixel_spacing"] * c["source_to_iso"] / c["sid"]
+
+
+def inference_camera(case: "RealXrayCase", config: dict) -> dict:
+    """Camera for the refiners and the reprojection of one case.
+
+    camera = "training"    : the checkpoint's own camera (SID 0.9 m, SOD 0.75 m, 0.65 / 0.55 mm).
+    camera = "acquisition" : SID and SOD of the case's acquisition system (config "acquisition_geometry", keyed by the
+        `system` stored by step 08: allura / azurion; "default" for anything else). The detector pixel spacing is the
+        one that keeps the exported grid: isocentre pixel (0.542 / 0.458 mm) x SID / SOD, unless
+        "imager_pixel_spacing_mm" is set; then a mismatch with the grid is reported in `warning`.
+    """
+    mode = config.get("camera", "acquisition")
+    cam = dict(MODEL_CAMERA[case.artery_type], mode=mode, system=case.meta.get("system", ""))
+    if mode == "training":
+        return cam
+    if mode != "acquisition":
+        raise ValueError("camera must be 'training' or 'acquisition'")
+    table = {**DEFAULT_ACQUISITION_GEOMETRY, **config.get("acquisition_geometry", {})}
+    geo = table.get(cam["system"]) or table.get("default")
+    if geo is None:
+        raise ValueError(f"{case.name}: no acquisition geometry for system '{cam['system']}' (add it, or 'default', "
+                         f"to acquisition_geometry in the config)")
+    sid_m, sod_m = float(geo["sid_mm"]) / 1000.0, float(geo["sod_mm"]) / 1000.0
+    if not 0 < sod_m < sid_m:
+        raise ValueError(f"acquisition geometry needs 0 < SOD < SID, got SID {sid_m} m, SOD {sod_m} m")
+    grid_px = model_iso_pixel_mm(case.artery_type) * sid_m / sod_m
+    px = float(config.get("imager_pixel_spacing_mm") or grid_px)
+    cam.update(sid=sid_m, source_to_iso=sod_m, imager_pixel_spacing=px)
+    if abs(px / grid_px - 1) > 0.01:
+        cam["warning"] = (f"imager_pixel_spacing_mm {px:.4f} gives {px * sod_m / sid_m:.4f} mm at the isocentre, "
+                          f"but the exported images use {model_iso_pixel_mm(case.artery_type):.4f}")
+    return cam
 
 
 @dataclass
@@ -67,7 +110,8 @@ def load_case(path: str | Path, artery_type: str) -> RealXrayCase:
         if not np.allclose(feats, view_features_from_angles(theta, phi), atol=1e-5):
             raise ValueError(f"{path}: view_features disagree with theta/phi")
         meta_keys = ["case_id", "study_id", "subset", "seg_method", "seg_dir", "mask_key", "orientation",
-                     "center_mode", "scale_mode", "scale_full_to_model", "src_iso_pixel_mm", "angle_convention"]
+                     "center_mode", "scale_mode", "scale_full_to_model", "src_iso_pixel_mm", "angle_convention",
+                     "system", "scale_calibration"]
         meta = {k: (z[k].item() if z[k].ndim == 0 else z[k].tolist()) for k in meta_keys if k in z.files}
         for k in ("primary_angle_deg", "secondary_angle_deg", "keyframe_index", "n_frames",
                   "crop_clipped_fraction", "nearest_anchor_deg", "video_stem", "video_path"):

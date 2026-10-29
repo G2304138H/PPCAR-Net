@@ -66,3 +66,31 @@ def test_view_selection_prefers_separated_directions(tmp_path):
     assert select_input_views(case, 3, "first") == [0, 1, 2]
     with pytest.raises(ValueError):
         load_case(tmp_path / "case.npz", "rca")
+
+
+def test_renderer_matches_training_renderer_at_training_camera():
+    from vessel_code.geometry.surface_rendering import build_surface_coords, _render_projection_from_surface_rings
+    ex = np.load(ROOT / "examples/rca/rca_0457.npz")
+    v = ex["raw_vessel_code_mm"].copy()
+    v = v[v[..., 3].max(1) > 0]
+    v[..., :3] -= ex["projection_center_offset"] * 1000
+    s = build_surface_coords(v * 0.001, 60)
+    t, p = float(ex["theta_deg"][0]), float(ex["phi_deg"][0])
+    a = _render_projection_from_surface_rings(s, t, p, 256, 0.9, 0.55)
+    b = render.render_surface_rings(s, t, p, 256, 0.9, 0.75, 0.55)
+    assert np.array_equal(a, b)
+
+
+def test_acquisition_camera_keeps_the_exported_grid(tmp_path):
+    from vessel_code.real_xray.data import inference_camera, model_iso_pixel_mm
+    _write_case(tmp_path / "case.npz", "lca")
+    case = load_case(tmp_path / "case.npz", "lca")
+    case.meta["system"] = "allura"
+    assert inference_camera(case, {"camera": "training"})["sid"] == 0.9
+    cam = inference_camera(case, {"camera": "acquisition"})
+    assert abs(cam["sid"] - 1.137) < 1e-9 and abs(cam["source_to_iso"] - 0.765) < 1e-9
+    iso = cam["imager_pixel_spacing"] * cam["source_to_iso"] / cam["sid"]
+    assert abs(iso - model_iso_pixel_mm("lca")) < 1e-9 and "warning" not in cam
+    assert "warning" in inference_camera(case, {"camera": "acquisition", "imager_pixel_spacing_mm": 0.3418})
+    case.meta["system"] = "azurion"
+    assert abs(inference_camera(case, {"camera": "acquisition"})["sid"] - 1.195) < 1e-9

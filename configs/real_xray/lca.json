@@ -5,6 +5,23 @@
   "output_dir": "outputs/real_xray/nnunet_A/lca",
   "case_ids": null,
   "device": "auto",
+  "camera": "acquisition",
+  "acquisition_geometry": {
+    "allura": {
+      "sid_mm": 1137.0,
+      "sod_mm": 765.0
+    },
+    "azurion": {
+      "sid_mm": 1195.0,
+      "sod_mm": 810.0
+    },
+    "default": {
+      "sid_mm": 1137.0,
+      "sod_mm": 765.0
+    }
+  },
+  "imager_pixel_spacing_mm": null,
+  "output_mode": "full",
   "num_views": 2,
   "view_selection": "max_separation",
   "input_views": "auto",
