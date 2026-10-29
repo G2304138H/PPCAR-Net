@@ -94,3 +94,21 @@ def test_acquisition_camera_keeps_the_exported_grid(tmp_path):
     assert "warning" in inference_camera(case, {"camera": "acquisition", "imager_pixel_spacing_mm": 0.3418})
     case.meta["system"] = "azurion"
     assert abs(inference_camera(case, {"camera": "acquisition"})["sid"] - 1.195) < 1e-9
+
+
+def test_center_views_moves_mask_to_image_centre():
+    from types import SimpleNamespace
+    from vessel_code.real_xray.infer import center_views
+    img = np.zeros((2, 256, 256), np.float32)
+    img[0, 20:60, 30:90] = 1                       # off-centre
+    img[1, 108:148, 98:158] = 1                    # already centred
+    case = SimpleNamespace(images=img.copy(), raw_images=img.copy(), model_to_full=np.tile(np.eye(3), (2, 1, 1)))
+    shifts = center_views(case, [0, 1], "mask_centroid")
+    assert shifts[1] == [0, 0]
+    r, c = np.nonzero(case.images[0] > 0.5)
+    assert abs(r.mean() - 127.5) <= 0.5 and abs(c.mean() - 127.5) <= 0.5
+    assert case.images[0].sum() == img[0].sum()    # nothing clipped
+    # model_to_full maps the moved view back onto the original position
+    u = np.array([r.mean(), c.mean(), 1.0])
+    back = case.model_to_full[0] @ u
+    assert np.allclose(back[:2], [39.5, 59.5], atol=0.6)

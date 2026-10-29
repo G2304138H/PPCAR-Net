@@ -102,6 +102,8 @@ Config keys (`configs/real_xray/{lca,rca}.json`):
 | `num_views` | 2 | input views given to the model (1–7) |
 | `view_selection` | `max_separation` | `max_separation`: one view per direction (the one with most vessel), then the set with the largest smallest angle between views (capped at 90°); `first`: file order |
 | `input_views` | `auto` | or a list of view indices for every case, or `{"Study01126_LCA": [0, 2]}` |
+| `input_centering` | `mask_centroid` | before inference, move every view's mask (and its raw X-ray) so the mask is in the image centre: `mask_centroid`, `bbox_center` (2–98 % box, less pulled by a catheter) or `none` (raw C-arm position). Shifts are in `summary.csv` (`centering_shift_px`, view:row,col) |
+| `centering_views` | `all` | `all` views or only the `inputs` |
 | `input_recentering_iterations` | 0 | experimental: shift the input views onto the reprojection of the prediction and predict again (max 40 px per iteration) |
 | `align_reprojection` | true | overlays use the reprojection moved by its best 2D translation; both Dice values are reported |
 | `branch_threshold` | 0.5 | branch-existence probability threshold |

@@ -25,6 +25,8 @@
   "num_views": 2,
   "view_selection": "max_separation",
   "input_views": "auto",
+  "input_centering": "mask_centroid",
+  "centering_views": "all",
   "input_recentering_iterations": 0,
   "align_reprojection": true,
   "branch_threshold": 0.5,

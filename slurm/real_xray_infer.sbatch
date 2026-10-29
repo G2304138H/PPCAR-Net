@@ -14,10 +14,12 @@
 #   test, 5 cases:  sbatch --export=ALL,ART=lca,METHOD=xravos_A_v2,LIMIT=5 slurm/real_xray_infer.sbatch
 #   all cases:      sbatch --export=ALL,ART=lca,METHOD=xravos_A_v2 slurm/real_xray_infer.sbatch
 #   options:        OUTPUT_MODE=full|summary (default full), CAMERA=acquisition|training (default acquisition),
-#                   NUM_VIEWS=2, CASES="Study00605_RCA Study00087_RCA"
+#                   NUM_VIEWS=2, CASES="Study00605_RCA Study00087_RCA",
+#                   CENTER=mask_centroid|bbox_center|none (default mask_centroid: move every view's mask to the image
+#                   centre before inference; none = raw C-arm position)
 #   full: GIFs + per-view overlays + summary.png per case;  summary: only summary.png per case (fast)
 # Input:   $RECON_INPUTS/<METHOD>/<ART>/*.npz          (step 08 output)
-# Output:  $RECON_OUTPUTS/<METHOD>_<camera>[_first<LIMIT>]/<ART>/<case>/..., summary.csv
+# Output:  $RECON_OUTPUTS/<METHOD>_<camera>[_<CENTER>][_summary][_first<LIMIT>]/<ART>/<case>/..., summary.csv
 
 set -euo pipefail
 
@@ -36,15 +38,17 @@ CAMERA="${CAMERA:-acquisition}"
 RECON_INPUTS="${RECON_INPUTS:-/dataset/reny0012/angioseg/recon_inputs}"
 RECON_OUTPUTS="${RECON_OUTPUTS:-/dataset/reny0012/angioseg/recon_outputs}"
 OUTPUT_MODE="${OUTPUT_MODE:-full}"
+CENTER="${CENTER:-mask_centroid}"
 TAG="${METHOD}_${CAMERA}"
+[ "$CENTER" != "none" ] && TAG="${TAG}_${CENTER}"
 [ "$OUTPUT_MODE" = "summary" ] && TAG="${TAG}_summary"
-EXTRA=(--camera "$CAMERA" --num_views "${NUM_VIEWS:-2}" --output_mode "$OUTPUT_MODE")
+EXTRA=(--camera "$CAMERA" --input_centering "$CENTER" --num_views "${NUM_VIEWS:-2}" --output_mode "$OUTPUT_MODE")
 [ -n "${LIMIT:-}" ] && { EXTRA+=(--limit "$LIMIT"); TAG="${TAG}_first${LIMIT}"; }
 [ -n "${CASES:-}" ] && { EXTRA+=(--case_ids $CASES); TAG="${TAG}_selected"; }
 
 echo "[ppcar] host=$(hostname) job=${SLURM_JOB_ID:-none} python=$(command -v python)"
 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader || true
-echo "[ppcar] $RECON_INPUTS/$METHOD/$ART -> $RECON_OUTPUTS/$TAG/$ART  (camera $CAMERA)"
+echo "[ppcar] $RECON_INPUTS/$METHOD/$ART -> $RECON_OUTPUTS/$TAG/$ART  (camera $CAMERA, centering $CENTER)"
 
 python -m vessel_code.real_xray.infer --config "configs/real_xray/$ART.json" \
   --input_dir "$RECON_INPUTS/$METHOD/$ART" --output_dir "$RECON_OUTPUTS/$TAG/$ART" "${EXTRA[@]}"

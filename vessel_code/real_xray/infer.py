@@ -34,7 +34,7 @@ from vessel_code.real_xray import render
 
 SUMMARY_FIELDS = ["case_name", "artery", "seg_method", "subset", "system", "iso_pixel_mm", "camera",
                   "camera_sid_mm", "camera_sod_mm", "camera_pixel_mm", "n_views", "input_views", "input_clinical_views",
-                  "heldout_views", "dice_input_refined", "dice_heldout_refined",
+                  "heldout_views", "input_centering", "centering_shift_px", "dice_input_refined", "dice_heldout_refined",
                   "dice_input_refined_aligned", "dice_heldout_refined_aligned",
                   "dice_input_coarse", "dice_heldout_coarse", "dice_input_coarse_aligned",
                   "dice_heldout_coarse_aligned", "n_active_branches", "status"]
@@ -50,6 +50,10 @@ def validate_config(config: dict) -> None:
         raise ValueError("output_mode must be full or summary")
     if config.get("view_selection", "max_separation") not in ("max_separation", "first"):
         raise ValueError("view_selection must be max_separation or first")
+    if config.get("input_centering", "none") not in CENTERING_MODES:
+        raise ValueError(f"input_centering must be one of {CENTERING_MODES}")
+    if config.get("centering_views", "all") not in ("all", "inputs"):
+        raise ValueError("centering_views must be all or inputs")
     for key in ("checkpoint", "input_dir", "output_dir"):
         if not config.get(key):
             raise ValueError(f"{key} is required")
@@ -174,7 +178,9 @@ def save_case_sheet(case: RealXrayCase, vessel, active, inputs, views, masks_sho
         f"{float(case.meta.get('src_iso_pixel_mm', float('nan'))):.3f} mm/px   camera {cam.get('mode', '')} "
         f"(SID {cam['sid'] * 1000:.0f}, SOD {cam['source_to_iso'] * 1000:.0f} mm)   {role} reconstruction\n"
         f"inputs: {', '.join(f'v{k}' for k in inputs)}   mean Dice{' (2D-aligned)' if aligned else ''}: "
-        f"input {mean['input']:.2f}, held-out {mean['heldout']:.2f}", fontsize=10.5, y=1 - 0.12 / Ht, va="top")
+        f"input {mean['input']:.2f}, held-out {mean['heldout']:.2f}"
+        + (f"   | views centred on the mask ({case.meta['input_centering']}) for the model; shown at the original "
+           f"position" if case.meta.get("input_centering", "none") != "none" else ""), fontsize=10.5, y=1 - 0.12 / Ht, va="top")
     fig.text(0.01, 0.12 / Ht, "orange = reprojected 3D surface;  green = both, red = reprojection only, white = "
              "segmentation only\n3D panels: predicted surface seen along this view's X-ray direction (original image "
              "orientation)" + (";  reprojections shifted by their best 2D translation" if aligned else ""),
@@ -288,6 +294,8 @@ def visualize_case(case: RealXrayCase, roles: dict, inputs: list[int], dest: Pat
         input_views=inputs, input_clinical_views=[case.clinical_views[i] for i in inputs],
         heldout_views=[v["index"] for v in views if v["role"] == "heldout"],
         input_recentering_shift_px=case.meta.get("input_recentering_shift_px"),
+        input_centering=case.meta.get("input_centering", "none"),
+        centering_shift_px=case.meta.get("centering_shift_px", {}),
         n_active_branches={r: int(a.sum()) for r, (_, a) in roles.items()},
         radius_range_mm=[rmin, rmax], views=views, shown_role=show, overlays_aligned=align,
         mean_dice=mean_dice,
@@ -311,6 +319,39 @@ def recenter_inputs(case: RealXrayCase, inputs: list[int], vessel: np.ndarray, a
         case.raw_images[i] = ndimage.shift(case.raw_images[i], (dr, dc), order=1).astype(np.float32)
         case.model_to_full[i] = case.model_to_full[i] @ render.shift_matrix(dr, dc)
         shifts.append([dr, dc])
+    return shifts
+
+
+CENTERING_MODES = ("none", "mask_centroid", "bbox_center")
+
+
+def center_views(case: RealXrayCase, views: list[int], mode: str, min_px: int = 20) -> dict[int, list[int]]:
+    """Move each view's vessel mask to the image centre (in place). Runs before the model sees the views.
+
+    mask_centroid : mean position of the mask pixels
+    bbox_center   : centre of the 2-98 percentile box of the mask pixels (less pulled by a long catheter segment)
+    The raw X-ray is moved with the mask and model_to_full is updated, so overlays on the original frames stay correct.
+    Returns {view index: [d_row, d_col]} in model pixels (256 grid).
+    """
+    shifts = {}
+    for i in views:
+        m = case.images[i] > 0.5
+        if mode == "none" or m.sum() < min_px:
+            shifts[i] = [0, 0]
+            continue
+        r, c = np.nonzero(m)
+        if mode == "mask_centroid":
+            cr, cc = r.mean(), c.mean()
+        else:
+            cr = 0.5 * (np.percentile(r, 2) + np.percentile(r, 98))
+            cc = 0.5 * (np.percentile(c, 2) + np.percentile(c, 98))
+        H, W = m.shape
+        dr, dc = int(round((H - 1) / 2 - cr)), int(round((W - 1) / 2 - cc))
+        if dr or dc:
+            case.images[i] = render.shift_mask(case.images[i], dr, dc)
+            case.raw_images[i] = ndimage.shift(case.raw_images[i], (dr, dc), order=1).astype(np.float32)
+            case.model_to_full[i] = case.model_to_full[i] @ render.shift_matrix(dr, dc)
+        shifts[i] = [dr, dc]
     return shifts
 
 
@@ -341,6 +382,8 @@ def summary_row(s: dict) -> dict:
                n_views=len(s["views"]), input_views=";".join(map(str, s["input_views"])),
                input_clinical_views=" | ".join(s["input_clinical_views"]),
                heldout_views=";".join(map(str, s["heldout_views"])),
+               input_centering=s.get("input_centering", "none"),
+               centering_shift_px=" ".join(f"{k}:{v[0]},{v[1]}" for k, v in (s.get("centering_shift_px") or {}).items()),
                n_active_branches=s["n_active_branches"].get(s["shown_role"]), status="ok")
     for k in SUMMARY_FIELDS:
         if k.startswith("dice_"):
@@ -390,6 +433,10 @@ def run(config: dict, shard: int = 0, num_shards: int = 1) -> Path:
             if cam.get("warning"):
                 print(f"  [camera] {case.name}: {cam['warning']}", flush=True)
             case.meta["inference_camera"] = cam
+            ctr = config.get("input_centering", "none")
+            ctr_views = inputs if config.get("centering_views", "all") == "inputs" else list(range(case.num_views))
+            case.meta["input_centering"] = ctr
+            case.meta["centering_shift_px"] = {str(k): v for k, v in center_views(case, ctr_views, ctr).items()}
             output = predict(model, provider, device, case, inputs)
             roles = prediction_roles(output, artery, threshold=thr)
             total = np.zeros((len(inputs), 2), int)
@@ -435,13 +482,16 @@ def main():
     p.add_argument("--camera", choices=["acquisition", "training"], help="override config camera")
     p.add_argument("--output_mode", choices=["full", "summary"], help="full: GIFs + per-view PNGs + summary.png; "
                    "summary: only summary.png per case")
+    p.add_argument("--input_centering", choices=list(CENTERING_MODES),
+                   help="move each view's mask to the image centre before inference (override config)")
     p.add_argument("--limit", type=int, help="only the first N cases (test run)")
     p.add_argument("--case_ids", nargs="+", help="only these cases (file names without .npz)")
     p.add_argument("--shard", type=int, default=0)
     p.add_argument("--num_shards", type=int, default=1)
     a = p.parse_args()
     config = load_config(a.config)
-    for key in ("input_dir", "output_dir", "num_views", "camera", "limit", "case_ids", "output_mode"):
+    for key in ("input_dir", "output_dir", "num_views", "camera", "limit", "case_ids", "output_mode",
+                "input_centering"):
         if getattr(a, key) is not None:
             config[key] = getattr(a, key)
     run(config, a.shard, a.num_shards)
