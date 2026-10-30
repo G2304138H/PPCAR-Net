@@ -124,11 +124,28 @@ The output contains all seven projection masks, coarse and refined prediction NP
 
 For an LCA case, use the corresponding configuration in `configs/lca/`, set `artery_type` to `lca`, and supply the LCA checkpoint and annotation.
 
+## FFR along the centreline (branch `ffr-estimate`)
+
+`vessel_code.ffr` estimates hyperemic fractional flow reserve along every reconstructed branch. It runs on CPU with numpy/scipy only, after reconstruction:
+
+```bash
+# refined reconstruction from vessel_code.evaluate (overlay uses the run's projections.npz)
+python -m vessel_code.ffr.infer --input outputs/lca_example/lca_0457/refined.npz --output outputs/ffr/lca_0457 --mc 200
+
+# bundled example with a virtual 60% LAD lesion, and an OpenFOAM 3D CFD case
+python -m vessel_code.ffr.infer --input examples/lca/lca_0457.npz --output outputs/ffr/demo \
+    --virtual-lesion branch=0,t=0.3,sigma=0.03,severity=0.6 --projections examples/lca/lca_0457.npz --export-3d openfoam
+```
+
+The default is a steady 1D network model (viscous + Bernoulli losses, Young–Tsai stenosis loss, microvascular resistances calibrated on the healthy reference tree); the 3D path exports a watertight lumen and a ready-to-run OpenFOAM case with 1D-consistent boundary conditions. Outputs: `ffr_summary.json`, `ffr_centreline.csv`, `ffr_pullback.png`, `ffr_3d.png`, `ffr_projections.png`, `ffr_interactive.html`. Model, assumptions and limitations: [docs/ffr.md](docs/ffr.md).
+
 ## Repository layout
 
 ```text
 vessel_code/               Parametric model, refiners, data loader and evaluation
+vessel_code/ffr/           FFR estimation along the centreline (1D model, 3D CFD export, figures)
 configs/{rca,lca}/          Model and evaluation configurations
+configs/ffr/               FFR model configurations
 ckpt/                      Bundled RCA and LCA reconstruction checkpoints
 examples/                  Bundled RCA/LCA evaluation cases and synthetic loader example
 figures/                   Research figures and visual examples

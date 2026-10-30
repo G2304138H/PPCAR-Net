@@ -18,6 +18,8 @@ backbone = ["huggingface_hub", "einops", "safetensors", "opencv-python", "vggt @
 vessel-train = "vessel_code.train:main"
 vessel-evaluate = "vessel_code.evaluate:main"
 vessel-prepare = "vessel_code.prepare:main"
+vessel-ffr = "vessel_code.ffr.infer:main"
+vessel-ffr-3d = "vessel_code.ffr.openfoam:main"
 
 [tool.setuptools.packages.find]
 include = ["vessel_code*"]
